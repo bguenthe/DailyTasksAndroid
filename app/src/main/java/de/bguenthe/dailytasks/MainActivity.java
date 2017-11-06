@@ -114,7 +114,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void buildChart() {
-        ArrayMap<String, Result> arrayMap = new ArrayMap<>();
+        LinkedHashMap<String, Result> arrayMap = new LinkedHashMap<>();
         long maxDuration = 0;
         List<DailyTask> dt = database.dailyTaskDao().getAllDailyTask();
         Date current = new Date();
@@ -140,14 +140,15 @@ public class MainActivity extends AppCompatActivity {
         }
 
         ArrayList<BarEntry> barEntries = new ArrayList<>();
-        for (int i = 0; i < arrayMap.size(); i++) {
-            String key = arrayMap.keyAt(i);
-            Result r = arrayMap.valueAt(i);
+        int i = 0;
+        for (String key : arrayMap.keySet()) {
+            Result r = arrayMap.get(key);
             float percent = ((float) r.duration / (float) maxDuration) * 100f;
             barEntries.add(new BarEntry(i, percent));
             LabelMapping l = constbuttotolabels.get(key);
             l.duration = r.duration;
             currentbuttontolabels.put(key, l);
+            i++;
         }
 
         // Falls ein leerer Button eingefügt wurde
