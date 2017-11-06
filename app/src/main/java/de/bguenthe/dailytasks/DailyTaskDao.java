@@ -25,5 +25,5 @@ public interface DailyTaskDao {
     void updateUser(DailyTask dailyTask);
 
     @Query("delete from dailytask")
-    void removeAllDailyTasks();
+    void removeAllTasks();
 }

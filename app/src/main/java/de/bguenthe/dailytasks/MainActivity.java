@@ -16,6 +16,7 @@ import com.github.mikephil.charting.data.BarData;
 import com.github.mikephil.charting.data.BarDataSet;
 import com.github.mikephil.charting.data.BarEntry;
 import com.github.mikephil.charting.formatter.IAxisValueFormatter;
+import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -39,15 +40,22 @@ public class MainActivity extends AppCompatActivity {
         String button;
         String label;
         int color;
+        long duration;
 
-        public LabelMapping(String button, String label, int color) {
+        public LabelMapping(String button, String label, int color, long duration) {
             this.button = button;
             this.label = label;
             this.color = color;
+            this.duration = duration;
         }
 
-        public String getActive() {
-            return "*" + this.label + "*";
+        public void setActive() {
+            setDeactive();
+            this.label = "*" + this.label + "*";
+        }
+
+        public void setDeactive() {
+            this.label = this.label.replace("*", "");
         }
     }
 
@@ -96,12 +104,12 @@ public class MainActivity extends AppCompatActivity {
 //        }
 
         database = AppDatabase.getDatabase(getApplicationContext());
-        //database.dailyTaskDao().removeAllDailyTasks();
+        //database.dailyTaskDao().removeAllTasks();
 
-        constbuttotolabels.put("blue", new LabelMapping("blue", "Wartung", Color.BLUE));
-        constbuttotolabels.put("green", new LabelMapping("green", "Intrastat", Color.GREEN));
-        constbuttotolabels.put("black", new LabelMapping("black", "Coffee", Color.BLACK));
-        constbuttotolabels.put("white", new LabelMapping("white", "Termin", Color.WHITE));
+        constbuttotolabels.put("blue", new LabelMapping("blue", "Wartung", Color.BLUE,0));
+        constbuttotolabels.put("green", new LabelMapping("green", "Intrastat", Color.GREEN,0));
+        constbuttotolabels.put("black", new LabelMapping("black", "Coffee", Color.BLACK,0));
+        constbuttotolabels.put("white", new LabelMapping("white", "Termin", Color.WHITE,0));
         buildChart();
     }
 
@@ -136,28 +144,38 @@ public class MainActivity extends AppCompatActivity {
             String key = arrayMap.keyAt(i);
             Result r = arrayMap.valueAt(i);
             float percent = ((float) r.duration / (float) maxDuration) * 100f;
-            barEntries.add(new BarEntry(i + 1, percent));
-            currentbuttontolabels.put(key, constbuttotolabels.get(key));
+            barEntries.add(new BarEntry(i, percent));
+            LabelMapping l = constbuttotolabels.get(key);
+            l.duration = r.duration;
+            currentbuttontolabels.put(key, l);
         }
 
-        IAxisValueFormatter formatter = new IAxisValueFormatter() {
+        // Falls ein leerer Button eingefügt wurde
+        if (barEntries.size() < currentbuttontolabels.size()) {
+            barEntries.add(new BarEntry(currentbuttontolabels.size() -1 , 0));
+        }
+
+        IAxisValueFormatter formatter = new IndexAxisValueFormatter() {
             @Override
             public String getFormattedValue(float value, AxisBase axis) {
-                LabelMapping l = (LabelMapping) currentbuttontolabels.values().toArray()[(int) value - 1];
-                return l.label;
+                LabelMapping l = (LabelMapping) currentbuttontolabels.values().toArray()[(int) value];
+                return l.label + ":" + l.duration;
             }
         };
 
         XAxis xAxis = barChart.getXAxis();
+        xAxis.setGranularity(1f);
         xAxis.setValueFormatter(formatter);
 
         BarDataSet barDataSet = new BarDataSet(barEntries, "Tasks");
         ArrayList<Integer> colors = new ArrayList<>();
         for (String button : currentbuttontolabels.keySet()) {
-            LabelMapping l  = currentbuttontolabels.get(button);
+            LabelMapping l = currentbuttontolabels.get(button);
             colors.add(l.color);
         }
-        barDataSet.setColors(colors);
+        if (colors.size() != 0) {
+            barDataSet.setColors(colors);
+        }
         barDataSet.setValueTextSize(12f);
 
         BarData barData = new BarData(barDataSet);
@@ -212,21 +230,20 @@ public class MainActivity extends AppCompatActivity {
         }
         for (String b : currentbuttontolabels.keySet()) {
             LabelMapping loclabel = currentbuttontolabels.get(b);
-            loclabel.label = loclabel.label.replace("*", "");
+            loclabel.setDeactive();
             currentbuttontolabels.put(loclabel.button, loclabel);
             if (b.equals(button)) {
-                loclabel.label = "*" + loclabel.label + "*";
-                currentbuttontolabels.put(loclabel.label, loclabel);
+                loclabel.setActive();
+                currentbuttontolabels.put(b, loclabel);
             }
         }
-        barChart.invalidate();
+        buildChart();
     }
 
     public void writeData(String button, long duration) {
         Date d = new Date();
         DailyTask dailyTask = new DailyTask(button, d, duration);
         database.dailyTaskDao().addDailyTask(dailyTask);
-        buildChart();
     }
 
     @Override
