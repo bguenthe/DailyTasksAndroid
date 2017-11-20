@@ -6,7 +6,7 @@ import android.arch.persistence.room.Database;
 import android.arch.persistence.room.Room;
 import android.arch.persistence.room.RoomDatabase;
 
-@Database(entities = {DailyTask.class}, version = 1, exportSchema = false)
+@Database(entities = {DailyTask.class}, version = 2, exportSchema = false)
 @TypeConverters(DateTypeConverter.class)
 public abstract class AppDatabase extends RoomDatabase {
 

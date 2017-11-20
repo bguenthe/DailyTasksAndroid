@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">DailyTasks</string>
+    <string name="action_test">test</string>
+    <string name="action_stop">stop</string>
 </resources>

@@ -7,8 +7,19 @@
     tools:context="de.bguenthe.dailytasks.MainActivity">
 
     <com.github.mikephil.charting.charts.BarChart
+        android:id="@+id/barchart"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:id="@+id/barchart" >
-    </com.github.mikephil.charting.charts.BarChart>
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentStart="true"></com.github.mikephil.charting.charts.BarChart>
+
+    <android.support.v7.widget.Toolbar
+        android:id="@+id/my_toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="?attr/colorPrimary"
+        android:elevation="4dp"
+        android:theme="@style/ThemeOverlay.AppCompat.ActionBar"
+        app:popupTheme="@style/ThemeOverlay.AppCompat.Light"/>
+
 </RelativeLayout>

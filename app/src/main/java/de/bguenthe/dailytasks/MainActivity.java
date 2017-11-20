@@ -1,11 +1,17 @@
 package de.bguenthe.dailytasks;
 
+import android.content.Context;
 import android.content.Intent;
-
 import android.graphics.Color;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.Toolbar;
 import android.util.ArrayMap;
+import android.util.Log;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.widget.Toast;
 
 import com.github.mikephil.charting.charts.BarChart;
@@ -17,6 +23,18 @@ import com.github.mikephil.charting.data.BarDataSet;
 import com.github.mikephil.charting.data.BarEntry;
 import com.github.mikephil.charting.formatter.IAxisValueFormatter;
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
+
+import org.eclipse.paho.android.service.MqttAndroidClient;
+import org.eclipse.paho.client.mqttv3.DisconnectedBufferOptions;
+import org.eclipse.paho.client.mqttv3.IMqttActionListener;
+import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
+import org.eclipse.paho.client.mqttv3.IMqttToken;
+import org.eclipse.paho.client.mqttv3.MqttCallbackExtended;
+import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
+import org.eclipse.paho.client.mqttv3.MqttException;
+import org.eclipse.paho.client.mqttv3.MqttMessage;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -31,6 +49,8 @@ import io.flic.lib.FlicManager;
 import io.flic.lib.FlicManagerInitializedCallback;
 
 public class MainActivity extends AppCompatActivity {
+    private static final String TAG = "de.bguenthe.dailytasks";
+
     class Result {
         public Date startTimestamp;
         public long duration;
@@ -67,11 +87,27 @@ public class MainActivity extends AppCompatActivity {
     final ArrayMap<String, LabelMapping> constbuttotolabels = new ArrayMap<>();
     LinkedHashMap<String, LabelMapping> currentbuttontolabels = new LinkedHashMap<>();
 
+    MqttAndroidClient mqttAndroidClient;
+    final String publishTopic = "dailytask";
+    private JSONObject data = new JSONObject();
+
+    final String HOST = "odroidnas.wkjihn0g7rs5uxq0.myfritz.net";
+    private final int PORT = 1883;
+    private final String uri = "tcp://" + HOST + ":" + PORT;
+    private final int MINTIMEOUT = 2000;
+    private final int MAXTIMEOUT = 32000;
+    private int timeout = MINTIMEOUT;
+
+    String clientId = "DailyTaskClient";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         Config.setFlicCredentials();
+
+        Toolbar myToolbar = (Toolbar) findViewById(R.id.my_toolbar);
+        setSupportActionBar(myToolbar);
 
         barChart = findViewById(R.id.barchart);
 
@@ -106,11 +142,66 @@ public class MainActivity extends AppCompatActivity {
         database = AppDatabase.getDatabase(getApplicationContext());
         //database.dailyTaskDao().removeAllTasks();
 
-        constbuttotolabels.put("blue", new LabelMapping("blue", "Wartung", Color.BLUE,0));
-        constbuttotolabels.put("green", new LabelMapping("green", "Intrastat", Color.GREEN,0));
-        constbuttotolabels.put("black", new LabelMapping("black", "Coffee", Color.BLACK,0));
-        constbuttotolabels.put("white", new LabelMapping("white", "Termin", Color.WHITE,0));
+        constbuttotolabels.put("blue", new LabelMapping("blue", "Wartung", Color.BLUE, 0));
+        constbuttotolabels.put("green", new LabelMapping("green", "Intrastat", Color.GREEN, 0));
+        constbuttotolabels.put("black", new LabelMapping("black", "Coffee", Color.BLACK, 0));
+        constbuttotolabels.put("white", new LabelMapping("white", "Termin", Color.WHITE, 0));
         buildChart();
+
+        mqttAndroidClient = new MqttAndroidClient(getApplicationContext(), uri, clientId);
+        mqttAndroidClient.setCallback(new MqttCallbackExtended() {
+            @Override
+            public void connectComplete(boolean reconnect, String serverURI) {
+
+                if (reconnect) {
+                    // Because Clean Session is true, we need to re-subscribe
+                } else {
+                }
+            }
+
+            @Override
+            public void connectionLost(Throwable cause) {
+            }
+
+            @Override
+            public void messageArrived(String topic, MqttMessage message) throws Exception {
+                logMessage("Incoming message: " + new String(message.getPayload()));
+            }
+
+            @Override
+            public void deliveryComplete(IMqttDeliveryToken token) {
+
+            }
+        });
+
+        MqttConnectOptions mqttConnectOptions = new MqttConnectOptions();
+        mqttConnectOptions.setAutomaticReconnect(true);
+        mqttConnectOptions.setCleanSession(false);
+
+        try {
+            logMessage("Connecting to " + uri);
+            mqttAndroidClient.connect(mqttConnectOptions, null, new IMqttActionListener() {
+                @Override
+                public void onSuccess(IMqttToken asyncActionToken) {
+                    DisconnectedBufferOptions disconnectedBufferOptions = new DisconnectedBufferOptions();
+                    disconnectedBufferOptions.setBufferEnabled(true);
+                    disconnectedBufferOptions.setBufferSize(100);
+                    disconnectedBufferOptions.setPersistBuffer(false);
+                    disconnectedBufferOptions.setDeleteOldestMessages(false);
+                    mqttAndroidClient.setBufferOpts(disconnectedBufferOptions);
+                }
+
+                @Override
+                public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
+                    exception.printStackTrace();
+                }
+            });
+        } catch (MqttException ex) {
+            ex.printStackTrace();
+        }
+
+        DailyTaskSender task = new DailyTaskSender();
+        task.execute(new String[]{"http://www.vogella.com/index.html"});
     }
 
     public void buildChart() {
@@ -153,7 +244,7 @@ public class MainActivity extends AppCompatActivity {
 
         // Falls ein leerer Button eingefügt wurde
         if (barEntries.size() < currentbuttontolabels.size()) {
-            barEntries.add(new BarEntry(currentbuttontolabels.size() -1 , 0));
+            barEntries.add(new BarEntry(currentbuttontolabels.size() - 1, 0));
         }
 
         IAxisValueFormatter formatter = new IndexAxisValueFormatter() {
@@ -214,7 +305,7 @@ public class MainActivity extends AppCompatActivity {
                 dailyTaskTimer.start();
             } else {
                 duration = dailyTaskTimer.stop();
-                writeData(oldButton, duration);
+                writeData(oldButton, currentbuttontolabels.get(oldButton).label, duration);
                 dailyTaskTimer.start();
             }
         }
@@ -222,9 +313,20 @@ public class MainActivity extends AppCompatActivity {
         setActive(button);
     }
 
+    private void stopCurrentTask() {
+        if (dailyTaskTimer.isRunning) {
+            long duration = dailyTaskTimer.stop();
+            writeData(oldButton, currentbuttontolabels.get(oldButton).label, duration);
+            for (String b : currentbuttontolabels.keySet()) {
+                LabelMapping loclabel = currentbuttontolabels.get(b);
+                loclabel.setDeactive();
+            }
+            oldButton = "";
+            buildChart();
+        }
+    }
+
     private void setActive(String button) {
-        XAxis xAxis = barChart.getXAxis();
-        int count = currentbuttontolabels.size();
         LabelMapping labelMapping = currentbuttontolabels.get(button);
         if (labelMapping == null) {
             currentbuttontolabels.put(button, constbuttotolabels.get(button));
@@ -241,17 +343,111 @@ public class MainActivity extends AppCompatActivity {
         buildChart();
     }
 
-    public void writeData(String button, long duration) {
+    public void writeData(String button, String task, long duration) {
         Date d = new Date();
-        DailyTask dailyTask = new DailyTask(button, d, duration);
-        database.dailyTaskDao().addDailyTask(dailyTask);
+        DailyTask dailyTask = new DailyTask(button, task, d, duration, false);
+        try {
+            database.dailyTaskDao().addDailyTask(dailyTask);
+            publishMessage(dailyTask);
+            dailyTask.mqttsend = true;
+            database.dailyTaskDao().update(dailyTask);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
     protected void onDestroy() {
-        long duration = dailyTaskTimer.stop();
-        writeData(oldButton, duration);
-        AppDatabase.destroyInstance();
-        super.onDestroy();
+        if (dailyTaskTimer.isRunning) {
+            long duration = dailyTaskTimer.stop();
+            writeData(oldButton, currentbuttontolabels.get(oldButton).label, duration);
+            AppDatabase.destroyInstance();
+            super.onDestroy();
+        }
+    }
+
+    public void logMessage(String message) {
+        Log.d(TAG, message);
+    }
+
+    public void publishMessage(DailyTask dt) throws JSONException, MqttException {
+        JSONObject object = new JSONObject();
+        object.put("button", dt.button);
+        object.put("duration", dt.duration);
+        object.put("id", dt.id);
+        object.put("name", dt.name);
+        object.put("startTimestamp", dt.startTimestamp.getTime());
+
+        MqttMessage message = new MqttMessage();
+        message.setPayload(object.toString().getBytes());
+        mqttAndroidClient.publish(publishTopic, message);
+        logMessage("Message Published");
+        if (!mqttAndroidClient.isConnected()) {
+            logMessage(mqttAndroidClient.getBufferedMessageCount() + " messages in buffer.");
+        }
+    }
+
+    private class DailyTaskSender extends AsyncTask<String, Void, String> {
+        @Override
+        protected String doInBackground(String... urls) {
+            List<DailyTask> dt = database.dailyTaskDao().getAllDailyTaskNotSend();
+            for (int i = 0; i < dt.size(); ++i) {
+                try {
+                    publishMessage(dt.get(i));
+                    DailyTask day = dt.get(i);
+                    day.mqttsend = true;
+                    database.dailyTaskDao().update(day);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+
+            return "";
+        }
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.button_blue:
+                simulateButton("blue");
+                return true;
+
+            case R.id.button_green:
+                simulateButton("green");
+                return true;
+
+            case R.id.button_white:
+                simulateButton("white");
+                return true;
+
+            case R.id.button_black:
+                simulateButton("black");
+                return true;
+
+            case R.id.action_stop:
+                stopCurrentTask();
+                return true;
+
+            default:
+                // If we got here, the user's action was not recognized.
+                // Invoke the superclass to handle it.
+                return super.onOptionsItemSelected(item);
+        }
+    }
+
+    private void simulateButton(String button) {
+        Context context = getApplicationContext();
+        Intent i = new Intent(context, MainActivity.class);
+        i.putExtra("button", button);
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        context.startActivity(i);
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.menu, menu);
+        return true;
     }
 }

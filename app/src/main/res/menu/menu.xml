@@ -1,0 +1,29 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    
+    <item
+        android:id="@+id/button_blue"
+        android:icon="@drawable/ic_button_blue"
+        android:title="@string/action_test"
+        app:showAsAction="always" />
+    <item
+        android:id="@+id/button_green"
+        android:icon="@drawable/ic_button_green"
+        android:title="@string/action_test"
+        app:showAsAction="always" />
+    <item
+        android:id="@+id/button_white"
+        android:icon="@drawable/ic_button_white"
+        android:title="@string/action_test"
+        app:showAsAction="always" />
+    <item
+        android:id="@+id/button_black"
+        android:icon="@drawable/ic_button_black"
+        android:title="@string/action_test"
+        app:showAsAction="always" />
+    <item
+        android:id="@+id/action_stop"
+        android:title="@string/action_stop"
+        app:showAsAction="always" />
+
+</menu>

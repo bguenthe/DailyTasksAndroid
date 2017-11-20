@@ -22,8 +22,11 @@ public interface DailyTaskDao {
     public List<DailyTask> getDailyTask(long taskId);
 
     @Update(onConflict = OnConflictStrategy.REPLACE)
-    void updateUser(DailyTask dailyTask);
+    void update(DailyTask dailyTask);
 
     @Query("delete from dailytask")
     void removeAllTasks();
+
+    @Query("select * from dailytask where mqttsend = 0")
+    public List<DailyTask> getAllDailyTaskNotSend();
 }

@@ -12,12 +12,16 @@ public class DailyTask {
     @PrimaryKey(autoGenerate = true)
     public long id;
     public String name;
+    public String button;
     public Date startTimestamp;
     public long duration;
+    public boolean mqttsend = false;
 
-    public DailyTask(String name, Date startTimestamp, long duration) {
+    public DailyTask(String name, String button, Date startTimestamp, long duration, boolean mqttsend) {
         this.name = name;
+        this.button = button;
         this.startTimestamp = startTimestamp;
         this.duration = duration;
+        this.mqttsend = mqttsend;
     }
 }
